@@ -1,0 +1,977 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Stock Valuation - Dividend Discount Model</title>
+    <style>
+        :root {
+            --primary: #2563eb;
+            --primary-dark: #1d4ed8;
+            --success: #16a34a;
+            --warning: #ca8a04;
+            --danger: #dc2626;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            background: var(--gray-100);
+            color: var(--gray-800);
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        header {
+            background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+            color: white;
+            padding: 40px 20px;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+        }
+
+        header p {
+            opacity: 0.9;
+            font-size: 1.1rem;
+        }
+
+        .formula-box {
+            background: rgba(255,255,255,0.15);
+            border-radius: 10px;
+            padding: 15px 25px;
+            display: inline-block;
+            margin-top: 20px;
+            font-family: 'Courier New', monospace;
+            font-size: 1.3rem;
+        }
+
+        .tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+
+        .tab {
+            padding: 12px 24px;
+            background: white;
+            border: 2px solid var(--gray-200);
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 500;
+            transition: all 0.2s;
+        }
+
+        .tab:hover {
+            border-color: var(--primary);
+            color: var(--primary);
+        }
+
+        .tab.active {
+            background: var(--primary);
+            color: white;
+            border-color: var(--primary);
+        }
+
+        .card {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            padding: 25px;
+            margin-bottom: 20px;
+        }
+
+        .card h2 {
+            color: var(--gray-800);
+            margin-bottom: 20px;
+            font-size: 1.3rem;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 6px;
+            font-weight: 500;
+            color: var(--gray-700);
+        }
+
+        .form-group small {
+            display: block;
+            color: var(--gray-600);
+            font-size: 0.85rem;
+            margin-top: 4px;
+        }
+
+        .form-row {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+        }
+
+        input[type="text"],
+        input[type="number"] {
+            width: 100%;
+            padding: 12px 16px;
+            border: 2px solid var(--gray-200);
+            border-radius: 8px;
+            font-size: 1rem;
+            transition: border-color 0.2s;
+        }
+
+        input:focus {
+            outline: none;
+            border-color: var(--primary);
+        }
+
+        .btn {
+            padding: 14px 28px;
+            border: none;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .btn-primary {
+            background: var(--primary);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: var(--primary-dark);
+        }
+
+        .btn-secondary {
+            background: var(--gray-200);
+            color: var(--gray-700);
+        }
+
+        .btn-secondary:hover {
+            background: var(--gray-300);
+        }
+
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        .hidden {
+            display: none !important;
+        }
+
+        /* Results */
+        .results-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+        }
+
+        .result-card {
+            background: var(--gray-50);
+            border-radius: 10px;
+            padding: 20px;
+        }
+
+        .result-card h3 {
+            color: var(--gray-600);
+            font-size: 0.9rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 15px;
+        }
+
+        .result-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 0;
+            border-bottom: 1px solid var(--gray-200);
+        }
+
+        .result-item:last-child {
+            border-bottom: none;
+        }
+
+        .result-label {
+            color: var(--gray-600);
+        }
+
+        .result-value {
+            font-weight: 600;
+            color: var(--gray-800);
+        }
+
+        /* Verdict Box */
+        .verdict-box {
+            text-align: center;
+            padding: 30px;
+            border-radius: 12px;
+            margin: 20px 0;
+        }
+
+        .verdict-box.undervalued {
+            background: linear-gradient(135deg, #dcfce7 0%, #bbf7d0 100%);
+            border: 2px solid var(--success);
+        }
+
+        .verdict-box.overvalued {
+            background: linear-gradient(135deg, #fef2f2 0%, #fecaca 100%);
+            border: 2px solid var(--danger);
+        }
+
+        .verdict-box.fairly_valued {
+            background: linear-gradient(135deg, #fefce8 0%, #fef08a 100%);
+            border: 2px solid var(--warning);
+        }
+
+        .verdict-box.not_applicable {
+            background: var(--gray-100);
+            border: 2px solid var(--gray-300);
+        }
+
+        .verdict-title {
+            font-size: 1.5rem;
+            font-weight: 700;
+            margin-bottom: 10px;
+        }
+
+        .verdict-box.undervalued .verdict-title { color: var(--success); }
+        .verdict-box.overvalued .verdict-title { color: var(--danger); }
+        .verdict-box.fairly_valued .verdict-title { color: var(--warning); }
+
+        .verdict-details {
+            font-size: 1.1rem;
+            color: var(--gray-700);
+        }
+
+        .fair-value-display {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 30px;
+            margin: 20px 0;
+            flex-wrap: wrap;
+        }
+
+        .value-item {
+            text-align: center;
+        }
+
+        .value-item .label {
+            font-size: 0.85rem;
+            color: var(--gray-600);
+            margin-bottom: 5px;
+        }
+
+        .value-item .amount {
+            font-size: 2rem;
+            font-weight: 700;
+        }
+
+        .value-item.fair-value .amount {
+            color: var(--primary);
+        }
+
+        .value-item .vs {
+            font-size: 1.5rem;
+            color: var(--gray-400);
+        }
+
+        .margin-badge {
+            display: inline-block;
+            padding: 5px 15px;
+            border-radius: 20px;
+            font-weight: 600;
+            font-size: 1.1rem;
+        }
+
+        .margin-badge.positive {
+            background: #dcfce7;
+            color: var(--success);
+        }
+
+        .margin-badge.negative {
+            background: #fef2f2;
+            color: var(--danger);
+        }
+
+        /* Sensitivity Table */
+        .sensitivity-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 15px;
+            font-size: 0.9rem;
+        }
+
+        .sensitivity-table th,
+        .sensitivity-table td {
+            padding: 10px;
+            text-align: center;
+            border: 1px solid var(--gray-200);
+        }
+
+        .sensitivity-table th {
+            background: var(--gray-100);
+            font-weight: 600;
+        }
+
+        .sensitivity-table .current {
+            background: var(--primary);
+            color: white;
+            font-weight: 700;
+            border-radius: 4px;
+        }
+
+        .sensitivity-table .header-r {
+            background: var(--gray-200);
+        }
+
+        .sensitivity-table .header-g {
+            background: var(--gray-200);
+        }
+
+        /* Demo Section */
+        .demo-example {
+            background: var(--gray-50);
+            border-radius: 10px;
+            padding: 20px;
+            margin: 15px 0;
+        }
+
+        .demo-example h4 {
+            margin-bottom: 10px;
+            color: var(--gray-700);
+        }
+
+        .price-comparison {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 15px;
+            margin-top: 20px;
+        }
+
+        .price-card {
+            background: white;
+            border-radius: 8px;
+            padding: 15px;
+            text-align: center;
+            border: 2px solid var(--gray-200);
+        }
+
+        .price-card.undervalued { border-color: var(--success); }
+        .price-card.overvalued { border-color: var(--danger); }
+        .price-card.fairly_valued { border-color: var(--warning); }
+
+        .price-card .price {
+            font-size: 1.5rem;
+            font-weight: 700;
+            margin-bottom: 5px;
+        }
+
+        .price-card .verdict-mini {
+            font-size: 0.8rem;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+
+        .price-card.undervalued .verdict-mini { color: var(--success); }
+        .price-card.overvalued .verdict-mini { color: var(--danger); }
+        .price-card.fairly_valued .verdict-mini { color: var(--warning); }
+
+        /* Rate Impact */
+        .rate-chart {
+            margin-top: 20px;
+        }
+
+        .rate-bar {
+            display: flex;
+            align-items: center;
+            margin: 8px 0;
+            gap: 10px;
+        }
+
+        .rate-label {
+            width: 50px;
+            font-weight: 500;
+            text-align: right;
+        }
+
+        .rate-bar-container {
+            flex: 1;
+            height: 30px;
+            background: var(--gray-200);
+            border-radius: 4px;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .rate-bar-fill {
+            height: 100%;
+            background: var(--primary);
+            transition: width 0.5s ease;
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            padding-right: 10px;
+            color: white;
+            font-weight: 600;
+            font-size: 0.85rem;
+        }
+
+        /* Loading */
+        .loading {
+            text-align: center;
+            padding: 40px;
+        }
+
+        .spinner {
+            width: 40px;
+            height: 40px;
+            border: 4px solid var(--gray-200);
+            border-top-color: var(--primary);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 15px;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        /* Error */
+        .error-box {
+            background: #fef2f2;
+            border: 1px solid #fecaca;
+            color: var(--danger);
+            padding: 15px 20px;
+            border-radius: 8px;
+            margin: 20px 0;
+        }
+
+        /* Disclaimer */
+        .disclaimer {
+            background: #fefce8;
+            border: 1px solid #fef08a;
+            border-radius: 8px;
+            padding: 15px 20px;
+            margin-top: 20px;
+            font-size: 0.9rem;
+            color: var(--gray-700);
+        }
+
+        .disclaimer strong {
+            color: var(--warning);
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            header h1 {
+                font-size: 1.8rem;
+            }
+
+            .formula-box {
+                font-size: 1rem;
+                padding: 10px 15px;
+            }
+
+            .fair-value-display {
+                flex-direction: column;
+                gap: 15px;
+            }
+
+            .value-item .amount {
+                font-size: 1.5rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>Stock Valuation Calculator</h1>
+        <p>Dividend Discount Model - Gordon Growth Model (GGM)</p>
+        <div class="formula-box">
+            P = D₁ / (r - g)
+        </div>
+    </header>
+
+    <div class="container">
+        <!-- Tabs -->
+        <div class="tabs">
+            <button class="tab active" data-tab="ticker">Analizza Ticker</button>
+            <button class="tab" data-tab="manual">Inserimento Manuale</button>
+            <button class="tab" data-tab="demo">Esempio Didattico</button>
+        </div>
+
+        <!-- Tab: Ticker Analysis -->
+        <div id="tab-ticker" class="tab-content">
+            <div class="card">
+                <h2>🔍 Cerca un'Azione</h2>
+                <form id="ticker-form">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="ticker">Ticker Symbol</label>
+                            <input type="text" id="ticker" placeholder="es. JNJ, AAPL, KO" required>
+                            <small>Inserisci il simbolo del titolo (mercato USA)</small>
+                        </div>
+                        <div class="form-group">
+                            <label for="required-return">Rendimento Richiesto (r) %</label>
+                            <input type="number" id="required-return" value="8" min="1" max="30" step="0.5">
+                            <small>Il tuo tasso di rendimento desiderato</small>
+                        </div>
+                        <div class="form-group">
+                            <label for="growth-rate">Crescita Dividendi (g) %</label>
+                            <input type="number" id="growth-rate" placeholder="Auto" min="0" max="20" step="0.5">
+                            <small>Lascia vuoto per calcolo automatico</small>
+                        </div>
+                    </div>
+                    <button type="submit" class="btn btn-primary">Analizza</button>
+                </form>
+            </div>
+
+            <div id="ticker-loading" class="loading hidden">
+                <div class="spinner"></div>
+                <p>Recupero dati in corso...</p>
+            </div>
+
+            <div id="ticker-error" class="error-box hidden"></div>
+
+            <div id="ticker-results" class="hidden">
+                <!-- Results will be inserted here -->
+            </div>
+        </div>
+
+        <!-- Tab: Manual Entry -->
+        <div id="tab-manual" class="tab-content hidden">
+            <div class="card">
+                <h2>✏️ Inserimento Manuale</h2>
+                <p style="margin-bottom: 20px; color: var(--gray-600);">
+                    Inserisci i dati manualmente per analizzare un'azione o fare simulazioni.
+                </p>
+                <form id="manual-form">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="m-company">Nome Azienda</label>
+                            <input type="text" id="m-company" placeholder="es. MegaCorp Inc." value="MegaCorp Inc.">
+                        </div>
+                        <div class="form-group">
+                            <label for="m-ticker">Ticker</label>
+                            <input type="text" id="m-ticker" placeholder="es. MEGA" value="MEGA">
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="m-price">Prezzo Attuale (€)</label>
+                            <input type="number" id="m-price" value="40" min="0.01" step="0.01" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="m-dividend">Dividendo Annuale (€)</label>
+                            <input type="number" id="m-dividend" value="2" min="0.01" step="0.01" required>
+                            <small>D₀ - Ultimo dividendo pagato</small>
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="m-return">Rendimento Richiesto (r) %</label>
+                            <input type="number" id="m-return" value="7" min="1" max="30" step="0.5" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="m-growth">Crescita Dividendi (g) %</label>
+                            <input type="number" id="m-growth" value="3" min="0" max="20" step="0.5" required>
+                        </div>
+                    </div>
+                    <button type="submit" class="btn btn-primary">Calcola Fair Value</button>
+                </form>
+            </div>
+
+            <div id="manual-loading" class="loading hidden">
+                <div class="spinner"></div>
+                <p>Calcolo in corso...</p>
+            </div>
+
+            <div id="manual-error" class="error-box hidden"></div>
+
+            <div id="manual-results" class="hidden">
+                <!-- Results will be inserted here -->
+            </div>
+        </div>
+
+        <!-- Tab: Demo -->
+        <div id="tab-demo" class="tab-content hidden">
+            <div class="card">
+                <h2>📚 Esempio Didattico: MegaCorp Inc.</h2>
+                <p style="margin-bottom: 20px; color: var(--gray-600);">
+                    Questo esempio illustra come funziona il Dividend Discount Model.
+                </p>
+
+                <div class="demo-example">
+                    <h4>I Dati dell'Esempio:</h4>
+                    <ul style="margin-left: 20px; margin-top: 10px;">
+                        <li><strong>D₁</strong> (Dividendo atteso prossimo anno): <strong>2,00 €</strong></li>
+                        <li><strong>g</strong> (Tasso di crescita dividendi): <strong>3%</strong></li>
+                        <li><strong>r</strong> (Rendimento richiesto): <strong>7%</strong></li>
+                    </ul>
+                </div>
+
+                <div class="demo-example">
+                    <h4>Il Calcolo:</h4>
+                    <div style="font-family: monospace; font-size: 1.2rem; margin-top: 10px; text-align: center;">
+                        P = D₁ / (r - g) = 2,00 / (0,07 - 0,03) = 2,00 / 0,04 = <strong style="color: var(--primary);">50,00 €</strong>
+                    </div>
+                </div>
+
+                <h3 style="margin-top: 30px; margin-bottom: 15px;">Confronto con Diversi Prezzi di Mercato:</h3>
+                <div class="price-comparison" id="demo-prices">
+                    <!-- Will be populated by JS -->
+                </div>
+
+                <h3 style="margin-top: 30px; margin-bottom: 15px;">Impatto dei Tassi di Interesse:</h3>
+                <div class="demo-example">
+                    <p>Cosa succede se i tassi salgono e tu pretendi un rendimento maggiore (r passa da 7% a 9%)?</p>
+                    <div class="rate-chart" id="demo-rates">
+                        <!-- Will be populated by JS -->
+                    </div>
+                    <p style="margin-top: 15px; font-weight: 500; color: var(--danger);">
+                        ⚠️ L'azienda è la stessa, ma il valore crolla del 33%!<br>
+                        Questo spiega perché i mercati scendono quando i tassi salgono.
+                    </p>
+                </div>
+
+                <div class="disclaimer">
+                    <strong>⚠️ Limite del Modello:</strong> Il DDM funziona solo per aziende che pagano dividendi.
+                    Per aziende growth (come molte tech) che non distribuiscono dividendi, si usano altri metodi
+                    come il DCF basato sul Free Cash Flow.
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Tab switching
+        document.querySelectorAll('.tab').forEach(tab => {
+            tab.addEventListener('click', () => {
+                // Update tab buttons
+                document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+                tab.classList.add('active');
+
+                // Show/hide content
+                document.querySelectorAll('.tab-content').forEach(c => c.classList.add('hidden'));
+                document.getElementById('tab-' + tab.dataset.tab).classList.remove('hidden');
+
+                // Load demo if needed
+                if (tab.dataset.tab === 'demo') {
+                    loadDemo();
+                }
+            });
+        });
+
+        // Ticker form submission
+        document.getElementById('ticker-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const ticker = document.getElementById('ticker').value.trim();
+            const requiredReturn = document.getElementById('required-return').value;
+            const growthRate = document.getElementById('growth-rate').value;
+
+            if (!ticker) return;
+
+            showLoading('ticker');
+
+            try {
+                const response = await fetch('/api/analyze', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        ticker,
+                        required_return: parseFloat(requiredReturn),
+                        growth_rate: growthRate ? parseFloat(growthRate) : null
+                    })
+                });
+
+                const data = await response.json();
+
+                if (!response.ok) {
+                    showError('ticker', data.error || 'An error occurred');
+                    return;
+                }
+
+                displayResults('ticker', data);
+
+            } catch (err) {
+                showError('ticker', 'Network error. Please try again.');
+            }
+        });
+
+        // Manual form submission
+        document.getElementById('manual-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const data = {
+                company_name: document.getElementById('m-company').value,
+                ticker: document.getElementById('m-ticker').value,
+                current_price: parseFloat(document.getElementById('m-price').value),
+                dividend: parseFloat(document.getElementById('m-dividend').value),
+                required_return: parseFloat(document.getElementById('m-return').value),
+                growth_rate: parseFloat(document.getElementById('m-growth').value)
+            };
+
+            showLoading('manual');
+
+            try {
+                const response = await fetch('/api/manual', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+
+                const result = await response.json();
+
+                if (!response.ok) {
+                    showError('manual', result.error || 'An error occurred');
+                    return;
+                }
+
+                displayResults('manual', result);
+
+            } catch (err) {
+                showError('manual', 'Network error. Please try again.');
+            }
+        });
+
+        function showLoading(prefix) {
+            document.getElementById(prefix + '-loading').classList.remove('hidden');
+            document.getElementById(prefix + '-error').classList.add('hidden');
+            document.getElementById(prefix + '-results').classList.add('hidden');
+        }
+
+        function showError(prefix, message) {
+            document.getElementById(prefix + '-loading').classList.add('hidden');
+            document.getElementById(prefix + '-error').classList.remove('hidden');
+            document.getElementById(prefix + '-error').textContent = message;
+            document.getElementById(prefix + '-results').classList.add('hidden');
+        }
+
+        function displayResults(prefix, data) {
+            document.getElementById(prefix + '-loading').classList.add('hidden');
+            document.getElementById(prefix + '-error').classList.add('hidden');
+
+            const resultsDiv = document.getElementById(prefix + '-results');
+            resultsDiv.classList.remove('hidden');
+
+            const stock = data.stock;
+            const val = data.valuation;
+
+            const verdictClass = val.verdict.toLowerCase();
+            const marginClass = val.margin_of_safety >= 0 ? 'positive' : 'negative';
+
+            let html = `
+                <div class="card">
+                    <h2>📊 ${stock.company_name} (${stock.ticker})</h2>
+
+                    <div class="results-grid">
+                        <div class="result-card">
+                            <h3>Dati Azienda</h3>
+                            <div class="result-item">
+                                <span class="result-label">Settore</span>
+                                <span class="result-value">${stock.sector}</span>
+                            </div>
+                            <div class="result-item">
+                                <span class="result-label">Industria</span>
+                                <span class="result-value">${stock.industry}</span>
+                            </div>
+                        </div>
+
+                        <div class="result-card">
+                            <h3>Dati Finanziari</h3>
+                            <div class="result-item">
+                                <span class="result-label">Prezzo Attuale</span>
+                                <span class="result-value">${stock.current_price} ${stock.currency}</span>
+                            </div>
+                            <div class="result-item">
+                                <span class="result-label">Dividendo Annuale</span>
+                                <span class="result-value">${stock.dividend} ${stock.currency}</span>
+                            </div>
+                            <div class="result-item">
+                                <span class="result-label">Dividend Yield</span>
+                                <span class="result-value">${stock.dividend_yield}%</span>
+                            </div>
+                        </div>
+
+                        <div class="result-card">
+                            <h3>Parametri Modello</h3>
+                            <div class="result-item">
+                                <span class="result-label">Rendimento (r)</span>
+                                <span class="result-value">${val.required_return}%</span>
+                            </div>
+                            <div class="result-item">
+                                <span class="result-label">Crescita (g)</span>
+                                <span class="result-value">${val.growth_rate}%</span>
+                            </div>
+                            <div class="result-item">
+                                <span class="result-label">D₁ Atteso</span>
+                                <span class="result-value">${val.d1} ${stock.currency}</span>
+                            </div>
+                        </div>
+                    </div>
+            `;
+
+            if (val.verdict === 'NOT_APPLICABLE') {
+                html += `
+                    <div class="verdict-box not_applicable">
+                        <div class="verdict-title">Non Applicabile</div>
+                        <div class="verdict-details">
+                            Questa azienda non paga dividendi o i dati sono insufficienti.<br>
+                            Il Dividend Discount Model non è applicabile.
+                        </div>
+                    </div>
+                `;
+            } else {
+                html += `
+                    <div class="fair-value-display">
+                        <div class="value-item fair-value">
+                            <div class="label">Fair Value</div>
+                            <div class="amount">${val.fair_value} ${stock.currency}</div>
+                        </div>
+                        <div class="value-item">
+                            <div class="vs">vs</div>
+                        </div>
+                        <div class="value-item">
+                            <div class="label">Prezzo di Mercato</div>
+                            <div class="amount">${stock.current_price} ${stock.currency}</div>
+                        </div>
+                        <div class="value-item">
+                            <div class="label">Margine</div>
+                            <span class="margin-badge ${marginClass}">${val.margin_of_safety > 0 ? '+' : ''}${val.margin_of_safety}%</span>
+                        </div>
+                    </div>
+
+                    <div class="verdict-box ${verdictClass}">
+                        <div class="verdict-title">${val.verdict_text}</div>
+                        <div class="verdict-details">
+                `;
+
+                if (val.verdict === 'UNDERVALUED') {
+                    html += `✅ L'azione sembra un buon affare! Stai comprando a ${stock.current_price} qualcosa che vale ${val.fair_value}.`;
+                } else if (val.verdict === 'OVERVALUED') {
+                    html += `⚠️ L'azione sembra troppo cara! Il mercato potrebbe essere troppo ottimista.`;
+                } else {
+                    html += `➡️ Il prezzo è in linea con il valore fondamentale.`;
+                }
+
+                html += `
+                        </div>
+                    </div>
+                `;
+
+                // Sensitivity analysis
+                if (data.sensitivity && data.sensitivity.length > 0) {
+                    html += `
+                        <h3 style="margin-top: 30px; margin-bottom: 15px;">📊 Analisi di Sensibilità</h3>
+                        <p style="color: var(--gray-600); margin-bottom: 15px;">Come cambia il Fair Value al variare di r e g:</p>
+                    `;
+
+                    // Build sensitivity table
+                    const gValues = [...new Set(data.sensitivity.map(s => s.g))].sort((a,b) => a-b);
+                    const rValues = [...new Set(data.sensitivity.map(s => s.r))].sort((a,b) => a-b);
+
+                    html += '<table class="sensitivity-table"><thead><tr><th class="header-r">r \\ g</th>';
+                    gValues.forEach(g => {
+                        html += `<th class="header-g">${g}%</th>`;
+                    });
+                    html += '</tr></thead><tbody>';
+
+                    rValues.forEach(r => {
+                        html += `<tr><th class="header-r">${r}%</th>`;
+                        gValues.forEach(g => {
+                            const cell = data.sensitivity.find(s => s.r === r && s.g === g);
+                            if (cell) {
+                                const cls = cell.is_current ? 'current' : '';
+                                html += `<td class="${cls}">${cell.fair_value}</td>`;
+                            } else {
+                                html += '<td>-</td>';
+                            }
+                        });
+                        html += '</tr>';
+                    });
+
+                    html += '</tbody></table>';
+                }
+            }
+
+            html += `
+                    <div class="disclaimer">
+                        <strong>⚠️ Disclaimer:</strong> Questa analisi è solo a scopo educativo.
+                        I risultati dipendono fortemente dalle ipotesi sui tassi.
+                        Non costituisce consulenza finanziaria.
+                    </div>
+                </div>
+            `;
+
+            resultsDiv.innerHTML = html;
+        }
+
+        async function loadDemo() {
+            try {
+                const response = await fetch('/api/demo');
+                const data = await response.json();
+
+                // Price comparison
+                const pricesDiv = document.getElementById('demo-prices');
+                pricesDiv.innerHTML = data.examples.map(ex => `
+                    <div class="price-card ${ex.verdict.toLowerCase()}">
+                        <div class="price">${ex.price.toFixed(2)} €</div>
+                        <div>Fair Value: ${ex.fair_value.toFixed(2)} €</div>
+                        <div>Margine: ${ex.margin > 0 ? '+' : ''}${ex.margin.toFixed(1)}%</div>
+                        <div class="verdict-mini">${ex.verdict_text.split('(')[0].trim()}</div>
+                    </div>
+                `).join('');
+
+                // Rate impact
+                const ratesDiv = document.getElementById('demo-rates');
+                const maxFV = Math.max(...data.rate_impact.map(r => r.fair_value));
+                ratesDiv.innerHTML = data.rate_impact.map(r => `
+                    <div class="rate-bar">
+                        <span class="rate-label">r = ${r.rate}%</span>
+                        <div class="rate-bar-container">
+                            <div class="rate-bar-fill" style="width: ${(r.fair_value / maxFV) * 100}%">
+                                ${r.fair_value.toFixed(2)} €
+                            </div>
+                        </div>
+                    </div>
+                `).join('');
+
+            } catch (err) {
+                console.error('Error loading demo:', err);
+            }
+        }
+    </script>
+</body>
+</html>
