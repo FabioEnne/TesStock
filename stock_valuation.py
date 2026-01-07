@@ -12,11 +12,15 @@ Where:
 """
 
 import requests
+import urllib3
 import json
 from typing import Optional, Tuple, Dict, List
 from dataclasses import dataclass
 from enum import Enum
 from datetime import datetime
+
+# Disable SSL warnings for environments with certificate issues
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 
 class Valuation(Enum):
@@ -71,7 +75,7 @@ def fetch_stock_data_yahoo(ticker: str) -> Optional[StockData]:
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
         }
 
-        response = requests.get(url, params=params, headers=headers, timeout=10)
+        response = requests.get(url, params=params, headers=headers, timeout=10, verify=False)
 
         if response.status_code != 200:
             return None
@@ -143,7 +147,7 @@ def fetch_dividend_history(ticker: str) -> Optional[List[Tuple[int, float]]]:
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
         }
 
-        response = requests.get(url, params=params, headers=headers, timeout=10)
+        response = requests.get(url, params=params, headers=headers, timeout=10, verify=False)
 
         if response.status_code != 200:
             return None
