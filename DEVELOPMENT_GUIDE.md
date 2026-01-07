@@ -8,18 +8,65 @@ This document describes the business logic and domain rules for the Stock Valuat
 
 ## 1. Application Purpose
 
-The application calculates the **intrinsic value** (Fair Value) of dividend-paying stocks using the **Dividend Discount Model (DDM)**, specifically the **Gordon Growth Model (GGM)**.
+The application calculates the **intrinsic value** (Fair Value) of stocks using discounted cash flow methods:
+
+- **Dividend Discount Model (DDM)** - For dividend-paying stocks
+- **Free Cash Flow Model (FCF)** - For growth stocks that don't pay dividends
 
 ### Core Value Proposition
 - Help investors determine if a stock is undervalued, fairly valued, or overvalued
-- Demonstrate the impact of interest rate changes on stock valuations
+- Handle both traditional dividend stocks AND modern growth stocks
+- Identify purely speculative stocks that cannot be valued fundamentally
+- Demonstrate the impact of interest rate changes on valuations
 - Provide educational examples to understand valuation concepts
 
 ---
 
-## 2. The Gordon Growth Model
+## 2. Stock Classification Decision Tree
 
-### 2.1 The Formula
+Before calculating value, classify the stock into one of three categories:
+
+```
+                    ┌─────────────────┐
+                    │  Analyze Stock  │
+                    └────────┬────────┘
+                             │
+                    ┌────────▼────────┐
+                    │ Pays Dividends? │
+                    └────────┬────────┘
+                             │
+              ┌──────────────┴──────────────┐
+              │ YES                         │ NO
+              ▼                             ▼
+    ┌─────────────────┐           ┌─────────────────┐
+    │   Use DDM       │           │ Has Positive    │
+    │   (Dividends)   │           │ Free Cash Flow? │
+    └─────────────────┘           └────────┬────────┘
+                                           │
+                            ┌──────────────┴──────────────┐
+                            │ YES                         │ NO
+                            ▼                             ▼
+                  ┌─────────────────┐           ┌─────────────────┐
+                  │   Use FCF       │           │   SPECULATIVE   │
+                  │   Model         │           │   (No Valuation)│
+                  └─────────────────┘           └─────────────────┘
+```
+
+### Classification Rules
+
+| Category | Condition | Valuation Method |
+|----------|-----------|------------------|
+| **DIVIDEND** | Annual Dividend > 0 | Dividend Discount Model |
+| **GROWTH** | Dividend = 0 AND FCF per share > 0 | Free Cash Flow Model |
+| **SPECULATIVE** | Dividend = 0 AND FCF ≤ 0 | Cannot value - pure speculation |
+
+---
+
+## 3. The Dividend Discount Model (DDM)
+
+*Used for: Dividend-paying stocks (JNJ, KO, PG, T, etc.)*
+
+### 3.1 The Formula
 
 ```
 Fair Value = D₁ / (r - g)
@@ -29,10 +76,10 @@ Where:
 | Symbol | Name | Description |
 |--------|------|-------------|
 | **D₁** | Expected Dividend | The dividend expected to be paid next year |
-| **r** | Required Return | The investor's minimum acceptable annual return (discount rate) |
+| **r** | Required Return | The investor's minimum acceptable annual return |
 | **g** | Growth Rate | The expected annual growth rate of dividends |
 
-### 2.2 Calculating D₁ (Next Year's Dividend)
+### 3.2 Calculating D₁ (Next Year's Dividend)
 
 ```
 D₁ = D₀ × (1 + g)
@@ -40,137 +87,219 @@ D₁ = D₀ × (1 + g)
 
 Where D₀ is the most recent annual dividend paid.
 
-### 2.3 Model Constraints
-
-The model has mathematical constraints that must be enforced:
+### 3.3 Model Constraints
 
 | Constraint | Rule | Reason |
 |------------|------|--------|
-| r > g | Required return must exceed growth rate | Otherwise formula produces negative or infinite values |
-| D₁ > 0 | Dividend must be positive | Model only works for dividend-paying stocks |
-| g ≥ 0 | Growth rate cannot be negative | Negative growth means declining dividends |
+| r > g | Required return must exceed growth rate | Otherwise formula produces negative/infinite values |
+| D₁ > 0 | Dividend must be positive | Model requires cash distributions |
+| g ≥ 0 | Growth rate cannot be negative | Negative growth = declining dividends |
 | g ≤ 15% | Growth rate capped at 15% | Unrealistically high growth is unsustainable |
-
-### 2.4 When the Model is Not Applicable
-
-Return "Not Applicable" status when:
-- Company does not pay dividends (D₀ = 0)
-- Growth rate equals or exceeds required return (g ≥ r)
-- Insufficient data to calculate parameters
 
 ---
 
-## 3. Data Requirements
+## 4. The Free Cash Flow Model (FCF)
 
-### 3.1 Stock Data (from Gemini LLM)
+*Used for: Growth stocks without dividends (AMZN, META, GOOG, etc.)*
+
+### 4.1 What is Free Cash Flow?
+
+**Free Cash Flow (FCF)** = Cash from Operations - Capital Expenditures
+
+In simple terms: The money left over after the company pays all its bills and investments. This is money that *could* be returned to shareholders (as dividends or buybacks) but is instead reinvested for growth.
+
+### 4.2 The Formula
+
+```
+Fair Value = FCF₁ / (r - g)
+```
+
+Where:
+| Symbol | Name | Description |
+|--------|------|-------------|
+| **FCF₁** | Expected FCF | Free Cash Flow expected next year (per share) |
+| **r** | Required Return | The investor's minimum acceptable annual return |
+| **g** | Growth Rate | The expected annual growth rate of FCF |
+
+### 4.3 Calculating FCF₁
+
+```
+FCF₁ = FCF₀ × (1 + g)
+```
+
+Where FCF₀ is the most recent annual Free Cash Flow per share.
+
+### 4.4 Model Constraints
+
+| Constraint | Rule | Reason |
+|------------|------|--------|
+| r > g | Required return must exceed growth rate | Mathematical requirement |
+| FCF₀ > 0 | FCF must be positive | Negative FCF = cash burn |
+| g ≥ 0 | Growth rate cannot be negative | Negative growth not sustainable |
+| g ≤ 20% | Growth rate capped at 20% | Higher cap than DDM (growth companies) |
+
+### 4.5 Why FCF Works for Growth Stocks
+
+Many modern companies (like Amazon for years, or AI startups today) choose to:
+- **Not pay dividends** - reinvest everything
+- **Generate positive cash flow** - profitable operations
+- **Grow rapidly** - use cash for expansion
+
+For these companies:
+- DDM would say "cannot value" (no dividends)
+- FCF model captures the value being created
+
+---
+
+## 5. Speculative Stocks
+
+*Companies with no dividends AND no positive Free Cash Flow*
+
+### 5.1 Characteristics
+
+- Burning cash (negative FCF)
+- No dividend payments
+- Value based purely on future hopes
+- Examples: Early-stage startups, pre-revenue companies, "meme stocks"
+
+### 5.2 How to Handle
+
+When a stock is classified as SPECULATIVE:
+
+1. **Do NOT calculate Fair Value** - No fundamental basis exists
+2. **Display clear warning** - User should understand the risk
+3. **Show available data** - Price, financials, but no valuation
+
+### 5.3 Warning Message
+
+```
+⚠️ SPECULATIVE STOCK
+
+This company does not pay dividends and has no positive Free Cash Flow.
+
+Without cash distributions or positive cash generation, there is no
+fundamental basis to calculate intrinsic value. The current price is
+driven purely by speculation - the hope that future cash flows will
+eventually materialize.
+
+Investing in speculative stocks carries significant risk. The price
+could go to zero if expected growth never materializes.
+```
+
+---
+
+## 6. Data Requirements
+
+### 6.1 Stock Data (from Gemini LLM)
 
 When a user provides a company name or ticker, query Gemini to obtain:
 
-| Field | Description | Example |
-|-------|-------------|---------|
-| `ticker` | Stock symbol | "JNJ" |
-| `company_name` | Full company name | "Johnson & Johnson" |
-| `current_price` | Current market price per share | 155.50 |
-| `currency` | Price currency | "USD" |
-| `annual_dividend` | Most recent annual dividend per share (D₀) | 4.76 |
-| `dividend_yield` | Annual dividend / Current price | 0.0306 (3.06%) |
-| `sector` | Business sector | "Healthcare" |
-| `industry` | Specific industry | "Drug Manufacturers" |
+| Field | Description | Example | Used For |
+|-------|-------------|---------|----------|
+| `ticker` | Stock symbol | "AAPL" | Display |
+| `company_name` | Full company name | "Apple Inc." | Display |
+| `current_price` | Current market price | 185.50 | All models |
+| `currency` | Price currency | "USD" | Display |
+| `annual_dividend` | Annual dividend per share | 0.96 | DDM |
+| `dividend_yield` | Dividend / Price | 0.52% | Display |
+| `fcf_per_share` | Free Cash Flow per share | 6.73 | FCF Model |
+| `dividend_growth_rate` | Historical dividend CAGR | 5.2% | DDM |
+| `fcf_growth_rate` | Historical FCF CAGR | 12.5% | FCF Model |
+| `sector` | Business sector | "Technology" | Display |
+| `industry` | Specific industry | "Consumer Electronics" | Display |
 
-### 3.2 Dividend Growth Rate Calculation
-
-The growth rate (g) can be obtained in three ways, in order of preference:
-
-1. **From Gemini**: Ask for historical dividend growth rate (CAGR)
-2. **User Override**: User provides a custom growth rate
-3. **Default Value**: Use conservative 2% if no data available
-
-#### CAGR Calculation (if historical data available)
+### 6.2 Gemini Query Structure
 
 ```
-CAGR = (Final Dividend / Initial Dividend)^(1/years) - 1
+For the company [COMPANY_NAME/TICKER], provide the following data:
+
+BASIC INFO:
+1. Current stock price and currency
+2. Company sector and industry
+
+DIVIDEND DATA:
+3. Annual dividend per share (0 if none)
+4. Dividend yield percentage
+5. 5-year dividend growth rate (CAGR) if applicable
+
+CASH FLOW DATA:
+6. Free Cash Flow per share (most recent annual)
+7. 5-year FCF growth rate (CAGR) if applicable
+
+Please indicate clearly if:
+- The company does not pay dividends
+- The company has negative Free Cash Flow
+- Data is not available for certain fields
 ```
 
-Requirements:
-- Minimum 3 years of dividend history
-- Filter out years with zero dividends
-- Cap result between 0% and 15%
+### 6.3 Growth Rate Determination
 
-### 3.3 Gemini Query Structure
+For both models, growth rate (g) is determined in order of preference:
 
-When querying Gemini for stock data, request:
-
-```
-For the company [COMPANY_NAME/TICKER], provide:
-1. Current stock price
-2. Annual dividend per share (most recent)
-3. Dividend yield percentage
-4. Historical dividend growth rate (5-year CAGR if available)
-5. Company sector and industry
-6. Currency
-
-If the company does not pay dividends, indicate this clearly.
-```
+1. **From Gemini** - Historical CAGR (dividend or FCF)
+2. **User Override** - Custom rate provided by user
+3. **Default Values**:
+   - DDM: 2% (conservative for mature dividend payers)
+   - FCF: 5% (higher for growth companies)
 
 ---
 
-## 4. Valuation Classification
+## 7. Valuation Classification
 
-### 4.1 Margin of Safety Calculation
+### 7.1 Margin of Safety Calculation
 
 ```
 Margin = ((Fair Value - Market Price) / Market Price) × 100
 ```
 
-### 4.2 Classification Rules
+### 7.2 Classification Rules (Same for DDM and FCF)
 
 | Margin | Classification | Meaning |
 |--------|---------------|---------|
-| > +10% | **UNDERVALUED** | Stock appears cheap relative to intrinsic value |
-| -10% to +10% | **FAIRLY VALUED** | Stock price aligns with intrinsic value |
-| < -10% | **OVERVALUED** | Stock appears expensive relative to intrinsic value |
+| > +10% | **UNDERVALUED** | Stock appears cheap |
+| -10% to +10% | **FAIRLY VALUED** | Price aligns with value |
+| < -10% | **OVERVALUED** | Stock appears expensive |
 
-The 10% threshold is configurable and represents a "margin of safety" buffer.
+### 7.3 Stock Type Verdicts
 
----
-
-## 5. Sensitivity Analysis
-
-### 5.1 Purpose
-
-Show users how the Fair Value changes with different assumptions for r and g. This demonstrates:
-- Model sensitivity to input parameters
-- Range of possible valuations
-- Impact of interest rate changes
-
-### 5.2 Default Parameter Ranges
-
-| Parameter | Default Range |
-|-----------|---------------|
-| Required Return (r) | 6%, 7%, 8%, 9%, 10% |
-| Growth Rate (g) | 1%, 2%, 3%, 4%, 5% |
-
-### 5.3 Output Format
-
-Generate a matrix showing Fair Value for each (r, g) combination:
-
-```
-         g →    1%     2%     3%     4%     5%
-    r ↓
-    6%        42.42  44.90  47.64  50.67  54.05
-    7%        35.35  36.73  38.25  39.92  41.78
-    8%        30.30  31.11  32.00  33.00  34.10
-    9%        26.52  27.00  27.53  28.11  28.74
-   10%        23.57  23.85  24.16  24.50  24.87
-```
-
-Highlight the cell matching current parameters.
+| Stock Type | Possible Verdicts |
+|------------|-------------------|
+| DIVIDEND | UNDERVALUED, FAIRLY VALUED, OVERVALUED |
+| GROWTH | UNDERVALUED, FAIRLY VALUED, OVERVALUED |
+| SPECULATIVE | SPECULATIVE (no valuation possible) |
 
 ---
 
-## 6. User Input Modes
+## 8. Sensitivity Analysis
 
-### 6.1 Ticker/Company Search
+### 8.1 Purpose
+
+Show how Fair Value changes with different assumptions. Critical because:
+- Small changes in g dramatically affect value
+- Interest rate changes (r) impact all stocks
+- Helps users understand model uncertainty
+
+### 8.2 Parameter Ranges by Model
+
+**DDM (Dividend Stocks):**
+| Parameter | Range |
+|-----------|-------|
+| r | 6%, 7%, 8%, 9%, 10% |
+| g | 1%, 2%, 3%, 4%, 5% |
+
+**FCF (Growth Stocks):**
+| Parameter | Range |
+|-----------|-------|
+| r | 8%, 9%, 10%, 11%, 12% |
+| g | 3%, 5%, 7%, 10%, 12% |
+
+*(Higher ranges for FCF because growth stocks typically have higher expected returns and growth)*
+
+---
+
+## 9. User Input Modes
+
+### 9.1 Automatic Analysis (via Gemini)
 
 **Input:**
 - Company name or ticker symbol
@@ -179,192 +308,249 @@ Highlight the cell matching current parameters.
 
 **Process:**
 1. Query Gemini for stock data
-2. Calculate growth rate if not provided
-3. Compute Fair Value
-4. Determine valuation classification
-5. Generate sensitivity analysis
+2. Classify stock (DIVIDEND / GROWTH / SPECULATIVE)
+3. If SPECULATIVE: Show warning, no valuation
+4. If DIVIDEND: Apply DDM
+5. If GROWTH: Apply FCF Model
+6. Calculate Fair Value and classification
+7. Generate sensitivity analysis
 
-### 6.2 Manual Data Entry
+### 9.2 Manual Data Entry
 
 **Input:**
-- Company name (free text)
-- Ticker (free text)
+- Company name, ticker
 - Current price
-- Annual dividend (D₀)
+- Annual dividend (can be 0)
+- FCF per share (can be 0 or negative)
 - Required return (r)
 - Growth rate (g)
 
 **Process:**
-1. Validate inputs (positive numbers, r > g)
-2. Calculate D₁ from D₀ and g
-3. Compute Fair Value
-4. Determine valuation classification
-5. Generate sensitivity analysis
-
-### 6.3 Educational Demo
-
-Pre-configured example demonstrating:
-- Basic calculation with fixed values
-- Comparison at different market prices
-- Impact of interest rate changes
-
-**Demo Parameters:**
-- D₁ = 2.00
-- g = 3%
-- r = 7%
-- Test prices: 40, 50, 70
-
----
-
-## 7. Interest Rate Impact Analysis
-
-### 7.1 Purpose
-
-Demonstrate why stock markets fall when interest rates rise.
-
-### 7.2 Calculation
-
-For a fixed dividend and growth rate, show Fair Value at different required returns:
-
-| Required Return | Fair Value | Change from Base |
-|-----------------|------------|------------------|
-| 5% | 100.00 | - |
-| 6% | 66.67 | -33% |
-| 7% | 50.00 | -50% |
-| 8% | 40.00 | -60% |
-| 9% | 33.33 | -67% |
-| 10% | 28.57 | -71% |
-
-### 7.3 Display
-
-Show as comparison to current market price:
-- If Fair Value > Market Price (+10%): Indicate upside potential
-- If Fair Value < Market Price (-10%): Indicate downside risk
-
----
-
-## 8. Business Rules Summary
-
-### 8.1 Input Validation
-
-| Field | Rule |
-|-------|------|
-| Ticker | Non-empty, uppercase |
-| Current Price | Must be > 0 |
-| Dividend | Must be ≥ 0 (0 = non-dividend stock) |
-| Required Return (r) | Must be between 1% and 30% |
-| Growth Rate (g) | Must be between 0% and 20% |
-| r vs g | r must be > g |
-
-### 8.2 Default Values
-
-| Parameter | Default |
-|-----------|---------|
-| Required Return | 8% |
-| Growth Rate | 2% (if not calculable) |
-| Valuation Threshold | 10% |
-
-### 8.3 Rounding Rules
-
-| Value | Precision |
-|-------|-----------|
-| Prices | 2 decimal places |
-| Percentages (display) | 1-2 decimal places |
-| Percentages (calculation) | Full precision |
-
----
-
-## 9. Error Handling
-
-### 9.1 Data Retrieval Errors
-
-| Scenario | User Message |
-|----------|--------------|
-| Company not found | "Could not find data for [TICKER]. Please verify the ticker symbol." |
-| Gemini unavailable | "Unable to retrieve stock data. Please try again or use manual entry." |
-| Invalid ticker format | "Please enter a valid ticker symbol (e.g., AAPL, JNJ)." |
-
-### 9.2 Calculation Errors
-
-| Scenario | User Message |
-|----------|--------------|
-| No dividends | "This company does not pay dividends. The DDM model is not applicable." |
-| g ≥ r | "Growth rate must be lower than required return. Please adjust parameters." |
-| Invalid inputs | "Please enter valid positive numbers for all fields." |
+1. Validate inputs
+2. Auto-classify based on dividend and FCF values
+3. Apply appropriate model
+4. Display results
 
 ---
 
 ## 10. Output Structure
 
-### 10.1 Valuation Result
+### 10.1 For Dividend Stocks (DDM)
 
 ```
+Stock Type: DIVIDEND STOCK
+Model Used: Dividend Discount Model (DDM)
+
 Stock Information:
   - Ticker: JNJ
   - Company: Johnson & Johnson
   - Sector: Healthcare
-  - Industry: Drug Manufacturers
 
 Financial Data:
   - Current Price: 155.50 USD
   - Annual Dividend: 4.76 USD
   - Dividend Yield: 3.06%
-  - Dividend Growth Rate: 5.2%
 
 Model Parameters:
   - Required Return (r): 8.0%
-  - Growth Rate (g): 5.2%
+  - Dividend Growth (g): 5.2%
   - Expected Dividend (D₁): 5.01 USD
 
 Valuation Result:
   - Fair Value: 178.93 USD
   - Market Price: 155.50 USD
-  - Margin of Safety: +15.1%
+  - Margin: +15.1%
   - Verdict: UNDERVALUED
 ```
 
-### 10.2 Verdict Messages
+### 10.2 For Growth Stocks (FCF)
+
+```
+Stock Type: GROWTH STOCK
+Model Used: Free Cash Flow Model (FCF)
+
+Stock Information:
+  - Ticker: AMZN
+  - Company: Amazon.com Inc.
+  - Sector: Consumer Cyclical
+
+Financial Data:
+  - Current Price: 178.25 USD
+  - Annual Dividend: None
+  - FCF per Share: 4.52 USD
+
+Model Parameters:
+  - Required Return (r): 10.0%
+  - FCF Growth (g): 8.0%
+  - Expected FCF (FCF₁): 4.88 USD
+
+Valuation Result:
+  - Fair Value: 244.00 USD
+  - Market Price: 178.25 USD
+  - Margin: +36.9%
+  - Verdict: UNDERVALUED
+```
+
+### 10.3 For Speculative Stocks
+
+```
+Stock Type: SPECULATIVE
+Model Used: None (Cannot Value)
+
+Stock Information:
+  - Ticker: RIVN
+  - Company: Rivian Automotive
+  - Sector: Automotive
+
+Financial Data:
+  - Current Price: 12.50 USD
+  - Annual Dividend: None
+  - FCF per Share: -8.25 USD (Negative)
+
+⚠️ VALUATION NOT POSSIBLE
+
+This company does not pay dividends and is currently burning cash
+(negative Free Cash Flow). There is no fundamental basis for valuation.
+
+The stock price is driven by speculation on future profitability.
+Invest only what you can afford to lose.
+```
+
+---
+
+## 11. Verdict Messages
+
+### 11.1 Valuation Verdicts
 
 | Verdict | Message |
 |---------|---------|
-| UNDERVALUED | "The stock appears to be a good value. You're buying at [price] something worth [fair_value]." |
-| FAIRLY VALUED | "The price is in line with fundamental value." |
-| OVERVALUED | "The stock appears expensive. The market may be too optimistic." |
-| NOT APPLICABLE | "This company doesn't pay dividends. Consider using DCF or other valuation methods." |
+| UNDERVALUED | "The stock appears undervalued. Fair Value ({fv}) exceeds Market Price ({mp})." |
+| FAIRLY VALUED | "The stock is fairly valued. Price aligns with fundamentals." |
+| OVERVALUED | "The stock appears overvalued. Market Price ({mp}) exceeds Fair Value ({fv})." |
+
+### 11.2 Stock Type Messages
+
+| Type | Message |
+|------|---------|
+| DIVIDEND | "Using Dividend Discount Model - this company returns cash to shareholders via dividends." |
+| GROWTH | "Using Free Cash Flow Model - this company reinvests profits instead of paying dividends." |
+| SPECULATIVE | "No valuation model applicable - this stock is purely speculative." |
 
 ---
 
-## 11. Limitations & Disclaimers
+## 12. Business Rules Summary
 
-### 11.1 Model Limitations
+### 12.1 Input Validation
 
-The Gordon Growth Model assumes:
-- Dividends grow at a constant rate forever
-- The company will continue paying dividends indefinitely
-- Growth rate remains below required return
+| Field | Rule |
+|-------|------|
+| Current Price | Must be > 0 |
+| Dividend | Must be ≥ 0 |
+| FCF per Share | Any value (can be negative) |
+| Required Return (r) | Between 1% and 30% |
+| Growth Rate (g) | Between 0% and 20% (25% for FCF) |
+| r vs g | r must be > g for valuation |
 
-These assumptions rarely hold perfectly in reality.
+### 12.2 Default Values
 
-### 11.2 When NOT to Use DDM
+| Parameter | DDM Default | FCF Default |
+|-----------|-------------|-------------|
+| Required Return (r) | 8% | 10% |
+| Growth Rate (g) | 2% | 5% |
+| Valuation Threshold | 10% | 10% |
 
-- **Growth stocks** that reinvest earnings (no dividends)
-- **Cyclical companies** with variable dividends
-- **Startups** or companies with uncertain futures
-- **Companies reducing dividends**
+### 12.3 Classification Priority
 
-### 11.3 Required Disclaimer
+If a company pays dividends AND has positive FCF:
+- **Use DDM** (dividend model takes priority)
+- Rationale: Actual cash returned to shareholders is more reliable than potential cash
+
+---
+
+## 13. Error Handling
+
+### 13.1 Data Errors
+
+| Scenario | Action |
+|----------|--------|
+| Company not found | Show error, suggest checking ticker |
+| Gemini unavailable | Offer manual entry mode |
+| Partial data | Use available data, note limitations |
+
+### 13.2 Calculation Errors
+
+| Scenario | Action |
+|----------|--------|
+| g ≥ r | Prompt user to adjust (growth too high or return too low) |
+| Negative price | Reject input |
+| Invalid numbers | Show validation error |
+
+---
+
+## 14. Limitations & Disclaimers
+
+### 14.1 Model Limitations
+
+**DDM assumes:**
+- Dividends grow at constant rate forever
+- Company continues paying indefinitely
+
+**FCF Model assumes:**
+- FCF grows at constant rate forever
+- Cash generation continues indefinitely
+
+**Reality:** Growth rates change, companies pivot, disruption happens.
+
+### 14.2 Speculative Stock Warning
+
+For speculative stocks, always emphasize:
+- No fundamental floor on price
+- Value could go to zero
+- Only invest what you can afford to lose
+- This is gambling, not investing
+
+### 14.3 Required Disclaimer
 
 Always display:
-> "This analysis is for educational purposes only. Results depend heavily on input assumptions. This does not constitute financial advice."
+> "This analysis is for educational purposes only. Valuation models depend heavily on assumptions that may not reflect reality. This does not constitute financial advice. Past performance does not guarantee future results."
 
 ---
 
-## 12. Future Enhancements (Out of Scope)
+## 15. Example Stock Classifications
 
-These features are not part of current scope but could be added:
+| Company | Dividend | FCF | Classification | Model |
+|---------|----------|-----|----------------|-------|
+| Johnson & Johnson | $4.76 | $7.50 | DIVIDEND | DDM |
+| Coca-Cola | $1.84 | $2.20 | DIVIDEND | DDM |
+| Amazon | $0 | $4.52 | GROWTH | FCF |
+| Google | $0 | $5.80 | GROWTH | FCF |
+| Uber | $0 | -$0.50 | SPECULATIVE | None |
+| Rivian | $0 | -$8.25 | SPECULATIVE | None |
+| WeWork (pre-crash) | $0 | -$15.00 | SPECULATIVE | None |
 
-1. **Multi-stage DDM** - Different growth rates for different periods
-2. **DCF Model** - For non-dividend stocks using Free Cash Flow
-3. **Comparative Analysis** - Compare multiple stocks
-4. **Historical Tracking** - Track valuations over time
-5. **Portfolio Integration** - Analyze entire portfolios
+---
+
+## 16. Summary: The Three Paths
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                     STOCK VALUATION PATHS                       │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                 │
+│  💰 DIVIDEND STOCKS          📈 GROWTH STOCKS                   │
+│  ─────────────────          ─────────────────                   │
+│  Pay dividends              No dividends                        │
+│  Mature companies           Reinvest everything                 │
+│  Value = D₁/(r-g)          Value = FCF₁/(r-g)                  │
+│  Examples: JNJ, KO, PG      Examples: AMZN, META                │
+│                                                                 │
+│                    🎲 SPECULATIVE STOCKS                        │
+│                    ─────────────────────                        │
+│                    No dividends                                 │
+│                    Negative cash flow                           │
+│                    No fundamental value                         │
+│                    Pure speculation                             │
+│                    Examples: Pre-profit startups                │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
+```
